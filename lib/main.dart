@@ -7,13 +7,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebase Initialize করুন
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: const FirebaseOptions(
-      apiKey: 'AIzaSyAXXXXXXXXXXXXXXXXXXXXXX', // আপনার API Key দিন
-      appId: '1:123456789:android:abc123def456', // আপনার App ID দিন
-      messagingSenderId: '123456789', // আপনার Sender ID দিন
-      projectId: 'your-project-id', // আপনার Project ID দিন
+      apiKey: 'AIzaSyAmdzfG8IEmu-fpYyFI7X0LrjihkgvCBXY',
+      appId: '1:976188271127:android:ed65b2c4c06dde55330a52',
+      messagingSenderId: '976188271127',
+      projectId: 'tic-tac-toe-6b321',
     ),
   );
   
@@ -31,7 +31,7 @@ class TicTacToeApp extends StatelessWidget {
         Provider(create: (_) => FirestoreService()),
       ],
       child: MaterialApp(
-        title: 'টিক ট্যাক টো',
+        title: 'Tic Tac Toe',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -62,7 +62,7 @@ class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String collectionName = 'matches';
 
-  // ম্যাচ সেভ করা
+  // Save match to Firebase
   Future<void> saveMatch(MatchModel match) async {
     try {
       await _firestore.collection(collectionName).add({
@@ -73,14 +73,14 @@ class FirestoreService {
         'createdAt': FieldValue.serverTimestamp(),
         'result': match.result,
       });
-      print('✅ ম্যাচ সেভ হয়েছে Firebase এ!');
+      print('✅ Match saved to Firebase!');
     } catch (e) {
-      print('❌ Firebase এ সেভ করতে সমস্যা: $e');
+      print('❌ Error saving to Firebase: $e');
       rethrow;
     }
   }
 
-  // সব ম্যাচ পাওয়া (রিয়েল-টাইম)
+  // Get all matches (real-time)
   Stream<List<MatchModel>> getAllMatches() {
     return _firestore
         .collection(collectionName)
@@ -93,8 +93,8 @@ class FirestoreService {
     });
   }
 
-  // সীমিত সংখ্যক ম্যাচ পাওয়া
-  Stream<List<MatchModel>> getRecentMatches({int limit = 20}) {
+  // Get limited number of recent matches
+  Stream<List<MatchModel>> getRecentMatches({int limit = 50}) {
     return _firestore
         .collection(collectionName)
         .orderBy('createdAt', descending: true)
@@ -107,7 +107,18 @@ class FirestoreService {
     });
   }
 
-  // সব ম্যাচ ডিলিট করা
+  // Delete single match by ID
+  Future<void> deleteMatch(String matchId) async {
+    try {
+      await _firestore.collection(collectionName).doc(matchId).delete();
+      print('✅ Match deleted successfully!');
+    } catch (e) {
+      print('❌ Error deleting match: $e');
+      rethrow;
+    }
+  }
+
+  // Delete all matches
   Future<void> deleteAllMatches() async {
     try {
       final matches = await _firestore.collection(collectionName).get();
@@ -118,14 +129,14 @@ class FirestoreService {
       }
       
       await batch.commit();
-      print('✅ সব ম্যাচ ডিলিট হয়েছে!');
+      print('✅ All matches deleted!');
     } catch (e) {
-      print('❌ ডিলিট করতে সমস্যা: $e');
+      print('❌ Error deleting all matches: $e');
       rethrow;
     }
   }
 
-  // গ্লোবাল স্ট্যাটিস্টিক্স
+  // Get global statistics
   Future<Map<String, int>> getGlobalStats() async {
     final matches = await _firestore.collection(collectionName).get();
     
@@ -155,7 +166,7 @@ class MatchModel {
   final String? id;
   final String playerX;
   final String playerO;
-  final String winner; // 'X', 'O', বা 'Tie'
+  final String winner; // 'X', 'O', or 'Tie'
   final List<String> board;
   final DateTime createdAt;
   final String result;
@@ -217,8 +228,8 @@ class GameProvider extends ChangeNotifier {
   String _currentPlayer = 'X';
   bool _gameActive = true;
 
-  String _playerXName = 'প্লেয়ার X';
-  String _playerOName = 'প্লেয়ার O';
+  String _playerXName = 'Player X';
+  String _playerOName = 'Player O';
 
   int _xWins = 0;
   int _oWins = 0;
@@ -268,10 +279,10 @@ class GameProvider extends ChangeNotifier {
       String resultText;
       if (winner == 'X') {
         _xWins++;
-        resultText = '$_playerXName জিতেছে!';
+        resultText = '$_playerXName wins!';
       } else {
         _oWins++;
-        resultText = '$_playerOName জিতেছে!';
+        resultText = '$_playerOName wins!';
       }
       _saveMatchResult(resultText, winner);
       notifyListeners();
@@ -281,7 +292,7 @@ class GameProvider extends ChangeNotifier {
     if (isDraw()) {
       _gameActive = false;
       _draws++;
-      _saveMatchResult('ড্র', 'Tie');
+      _saveMatchResult('Draw', 'Tie');
       notifyListeners();
       return;
     }
@@ -291,7 +302,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> _saveMatchResult(String resultText, String winner) async {
-    // লোকালি সেভ করুন
+    // Save locally
     final match = MatchResult(
       playerX: _playerXName,
       playerO: _playerOName,
@@ -301,7 +312,7 @@ class GameProvider extends ChangeNotifier {
     _history.insert(0, match);
     if (_history.length > 20) _history.removeLast();
 
-    // Firebase এ সেভ করার চেষ্টা করুন
+    // Try to save to Firebase
     try {
       final firestoreService = FirestoreService();
       final firestoreMatch = MatchModel(
@@ -318,7 +329,7 @@ class GameProvider extends ChangeNotifier {
       
       await firestoreService.saveMatch(firestoreMatch);
     } catch (e) {
-      print('Firebase এ সেভ করতে সমস্যা: $e');
+      print('Error saving to Firebase: $e');
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -338,8 +349,8 @@ class GameProvider extends ChangeNotifier {
   }
 
   void updatePlayerNames({required String xName, required String oName}) {
-    _playerXName = xName.trim().isEmpty ? 'প্লেয়ার X' : xName.trim();
-    _playerOName = oName.trim().isEmpty ? 'প্লেয়ার O' : oName.trim();
+    _playerXName = xName.trim().isEmpty ? 'Player X' : xName.trim();
+    _playerOName = oName.trim().isEmpty ? 'Player O' : oName.trim();
     notifyListeners();
   }
 
@@ -357,11 +368,11 @@ class GameProvider extends ChangeNotifier {
       String winnerMessage = '';
       final winner = checkWinner();
       if (winner == 'X') {
-        winnerMessage = '$_playerXName জিতেছে! 🎉';
+        winnerMessage = '$_playerXName wins! 🎉';
       } else if (winner == 'O') {
-        winnerMessage = '$_playerOName জিতেছে! 🎉';
+        winnerMessage = '$_playerOName wins! 🎉';
       } else if (isDraw()) {
-        winnerMessage = 'খেলাটি ড্র! 🤝';
+        winnerMessage = 'Game is a draw! 🤝';
       }
       if (winnerMessage.isNotEmpty) {
         showDialog(
@@ -376,7 +387,7 @@ class GameProvider extends ChangeNotifier {
                   Navigator.pop(context);
                   resetBoard();
                 },
-                child: const Text('আবার খেলুন'),
+                child: const Text('Play Again'),
               ),
             ],
           ),
@@ -479,7 +490,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                     const SizedBox(height: 40),
                     const Text(
-                      "টিক ট্যাক টো",
+                      "Tic Tac Toe",
                       style: TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
@@ -526,14 +537,14 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('প্লেয়ারের নাম পরিবর্তন করুন'),
+        title: const Text('Change Player Names'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: xController,
               decoration: const InputDecoration(
-                labelText: 'প্লেয়ার X এর নাম',
+                labelText: 'Player X Name',
                 prefixIcon: Icon(Icons.person),
               ),
             ),
@@ -541,7 +552,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
             TextField(
               controller: oController,
               decoration: const InputDecoration(
-                labelText: 'প্লেয়ার O এর নাম',
+                labelText: 'Player O Name',
                 prefixIcon: Icon(Icons.person_outline),
               ),
             ),
@@ -550,7 +561,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('বাতিল'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -560,7 +571,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
               );
               Navigator.pop(context);
             },
-            child: const Text('সেভ করুন'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -589,7 +600,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                   Icon(Icons.insights, color: Colors.cyanAccent),
                   SizedBox(width: 10),
                   Text(
-                    'পরিসংখ্যান',
+                    'Statistics',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -610,14 +621,14 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                 color: Colors.pinkAccent,
               ),
               _StatRow(
-                label: 'ড্র',
+                label: 'Draws',
                 value: provider.draws,
                 color: Colors.white70,
               ),
               if (provider.history.isNotEmpty) ...[
                 const Divider(height: 32, color: Colors.white24),
                 const Text(
-                  'সর্বশেষ ম্যাচ',
+                  'Recent Matches',
                   style: TextStyle(color: Colors.white54, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
@@ -638,7 +649,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                   },
                   icon: const Icon(Icons.refresh, color: Colors.redAccent),
                   label: const Text(
-                    'সব রিসেট করুন',
+                    'Reset All',
                     style: TextStyle(color: Colors.redAccent),
                   ),
                 ),
@@ -662,16 +673,16 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('টিক ট্যাক টো'),
+        title: const Text('Tic Tac Toe'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: 'নাম পরিবর্তন',
+            tooltip: 'Change Names',
             onPressed: () => _showEditNamesDialog(provider),
           ),
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'ম্যাচ ইতিহাস',
+            tooltip: 'Match History',
             onPressed: () {
               Navigator.push(
                 context,
@@ -708,7 +719,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                 ),
                 Container(width: 1, height: 40, color: Colors.white24),
                 _ScoreTile(
-                  name: 'ড্র',
+                  name: 'Draws',
                   symbol: '⚖️',
                   wins: provider.draws,
                   color: Colors.white70,
@@ -744,8 +755,8 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                 const SizedBox(width: 12),
                 Text(
                   provider.gameActive
-                      ? '${provider.currentPlayer == 'X' ? provider.playerXName : provider.playerOName} এর পালা'
-                      : 'খেলা শেষ',
+                      ? '${provider.currentPlayer == 'X' ? provider.playerXName : provider.playerOName}\'s turn'
+                      : 'Game Over',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -820,14 +831,14 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
         children: [
           _NavItem(
             icon: Icons.grid_3x3,
-            label: 'বোর্ড',
+            label: 'Board',
             index: 0,
             selectedIndex: _selectedNavIndex,
             onTap: () => setState(() => _selectedNavIndex = 0),
           ),
           _NavItem(
             icon: Icons.refresh,
-            label: 'রিসেট',
+            label: 'Reset',
             index: 1,
             selectedIndex: _selectedNavIndex,
             onTap: () {
@@ -835,7 +846,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
               provider.resetBoard();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('গেম রিসেট হয়েছে'),
+                  content: Text('Game reset'),
                   duration: Duration(milliseconds: 800),
                   behavior: SnackBarBehavior.floating,
                   backgroundColor: Colors.cyanAccent,
@@ -849,7 +860,7 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
           ),
           _NavItem(
             icon: Icons.bar_chart,
-            label: 'পরিসংখ্যান',
+            label: 'Stats',
             index: 2,
             selectedIndex: _selectedNavIndex,
             onTap: () {
@@ -1059,62 +1070,98 @@ class _StatRow extends StatelessWidget {
 }
 
 // ============================================================
-// History Screen with Firebase Integration
+// History Screen with Individual Delete Button
 // ============================================================
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
+  Future<void> _deleteMatch(BuildContext context, String matchId, String matchResult) async {
+    // Show confirmation dialog
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Match'),
+        content: Text('Are you sure you want to delete this match?\n\n$matchResult'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      try {
+        final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+        await firestoreService.deleteMatch(matchId);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Match deleted successfully'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting match: $e'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final firestoreService = Provider.of<FirestoreService>(context);
-    final localProvider = Provider.of<GameProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ম্যাচ ইতিহাস'),
+        title: const Text('Match History'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.cloud_sync),
-            tooltip: 'ক্লাউড সিঙ্ক',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Firebase এর সাথে সিঙ্ক হচ্ছে...'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: 'ইতিহাস মুছুন',
+            tooltip: 'Clear All History',
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
-                  title: const Text('ইতিহাস মুছবেন?'),
-                  content: const Text('সব ম্যাচ রেকর্ড ডিলিট হয়ে যাবে।'),
+                  title: const Text('Clear All History?'),
+                  content: const Text('All match records will be deleted permanently.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('বাতিল'),
+                      child: const Text('Cancel'),
                     ),
                     TextButton(
                       onPressed: () async {
                         await firestoreService.deleteAllMatches();
-                        localProvider.resetScoresAndHistory();
                         if (context.mounted) Navigator.pop(context);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('সব ইতিহাস মুছে ফেলা হয়েছে'),
+                              content: Text('All history cleared'),
                               duration: Duration(seconds: 1),
+                              backgroundColor: Colors.green,
                             ),
                           );
                         }
                       },
                       child: const Text(
-                        'মুছুন',
+                        'Delete All',
                         style: TextStyle(color: Colors.red),
                       ),
                     ),
@@ -1135,11 +1182,11 @@ class HistoryScreen extends StatelessWidget {
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text('এরর: ${snapshot.error}'),
+                  Text('Error: ${snapshot.error}'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {},
-                    child: const Text('আবার চেষ্টা করুন'),
+                    child: const Text('Try Again'),
                   ),
                 ],
               ),
@@ -1162,7 +1209,7 @@ class HistoryScreen extends StatelessWidget {
                   Icon(Icons.history, size: 64, color: Colors.white54),
                   SizedBox(height: 16),
                   Text(
-                    'কোনো ম্যাচ খেলা হয়নি\nখেলা শুরু করুন',
+                    'No matches played yet\nStart a game',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white54),
                   ),
@@ -1192,41 +1239,84 @@ class HistoryScreen extends StatelessWidget {
                 resultIcon = Icons.handshake;
               }
               
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+              return Dismissible(
+                key: Key(match.id ?? DateTime.now().toString()),
+                direction: DismissDirection.endToStart,
+                onDismissed: (direction) async {
+                  if (match.id != null) {
+                    await firestoreService.deleteMatch(match.id!);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${match.result} deleted'),
+                          duration: const Duration(seconds: 1),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  }
+                },
+                background: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                 ),
-                child: ListTile(
-                  leading: Icon(resultIcon, color: resultColor),
-                  title: Text(
-                    match.result,
-                    style: TextStyle(
-                      color: resultColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  subtitle: Text(
-                    '${match.playerX} ✕ vs ● ${match.playerO}\n$formattedDate',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: resultColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      match.winner == 'Tie' ? 'ড্র' : '${match.winner} জিতেছে',
+                  child: ListTile(
+                    leading: Icon(resultIcon, color: resultColor),
+                    title: Text(
+                      match.result,
                       style: TextStyle(
                         color: resultColor,
-                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
+                    ),
+                    subtitle: Text(
+                      '${match.playerX} ✕ vs ● ${match.playerO}\n$formattedDate',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: resultColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            match.winner == 'Tie' ? 'Draw' : '${match.winner} wins',
+                            style: TextStyle(
+                              color: resultColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                          onPressed: () => _deleteMatch(context, match.id!, match.result),
+                          tooltip: 'Delete this match',
+                        ),
+                      ],
                     ),
                   ),
                 ),
